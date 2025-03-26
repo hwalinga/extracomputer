@@ -689,6 +689,18 @@ function fctInitActionPhase()
 
     flexFont();
 
+
+    if (gMuaatronomeActive) {
+        if (!gMuaatronomeSession) {
+            gMuaatronomeSession = prompt("Set session name, do not use spaces.");
+        }
+        const playerList = strategyList
+            .filter(sl => sl[STRATEGY_PLAYER] != 255)
+            .map(sl => sl[STRATEGY_PLAYER])
+            .map(p => ({'race': getPlayerFaction(p, FACTION_SHORTNAME).toLowerCase(), 'time': gPlayerData[p][PLAYER_CLOCK]}));
+        axios.post(`game/${gMuaatronomeSession}/start_round`, {'races': playerList}).catch(error => alert(error));
+    }
+
     /* Set first player */
     i=0;
     while(strategyList[i][STRATEGY_PLAYER] == 255)
@@ -806,6 +818,25 @@ function FctAction(el)
 
 function fctResolveAction()
 {
+    fctProcessActionButtons()
+    if (gMuaatronomeActive) {
+        // inform server that the main has gone to next player.
+        // the main_update poll will trigger fctLocalResolveAction
+        const passed = strategyList[gActivePlayer][STRATEGY_STATUS] = STRATEGY_PASSED;
+        const strat_played = passed ? true :
+            strategyList[gActivePlayer][STRATEGY_STATUS] == STRATEGY_PLAYED;
+        return axios.post(`game/${gMuaatronomeSession}/main_next`, {
+            'strat': strat_played,
+            'passed': passed,
+        }).catch(err => alert(err));
+        // main_update poll will now trigger FctNextPlayerAction
+    } else {
+        FctNextPlayerAction();
+    }
+}
+
+function fctProcessActionButtons()
+{
     var i,a=0;
     var classStrategyNameText;
 
@@ -884,8 +915,9 @@ function fctResolveAction()
     /* Save player timer */
     gPlayerData[strategyList[gActivePlayer][STRATEGY_PLAYER]][PLAYER_CLOCK] += gCurrentPlayerTimer;
     gCurrentPlayerTimer = 0;
+    gActionButtonsProcessed = true;
 
-    FctNextPlayerAction();
+
 }
 
 function fctGetSecondStrat(p)
@@ -971,7 +1003,21 @@ function FctNextPlayerAction()
         fctRstFrames();
     }
 
+    axios.get(`game/${gMuaatronomeSession}/main_update`)
+        .then(response => {
+            if (!gActionButtonsProcessed) {
+                // Process performed action from server information.
+                const { passed, strat } = response.data
+                $("#idActionS1").toggleClass("clActionActive", strat);
+                $("#idActionPass").toggleClass("clActionActive", passed);
+                fctProcessActionButtons()
+            }
+            // Action has been performed locally.
+            FctNextPlayerAction()
+        })
     fctClock('on');
+    gActionButtonsProcessed = false;
+
 }
 
 function fctRstFrames()

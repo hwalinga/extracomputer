@@ -130,9 +130,12 @@ function fctClock(mode)
     /* Force run */
     else if (mode == 'on')
         gClockRun = 1;
+        axios.get(`game/${gMuaatronomeSession}/main_unpause`)
     /* Force pause */
-    else if (mode == 'off')
+    else if (mode == 'off') {
         gClockRun = -1;
+        axios.get(`game/${gMuaatronomeSession}/main_pause`)
+    }
 
     /* Inactivity timer reset */
     if(gClockRun == 1)
