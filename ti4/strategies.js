@@ -566,7 +566,6 @@ function fctEndStrategyPhase()
 
     }
     fctInitActionPhase();
-    FctNextPlayerAction();
 }
 
 function fctNaaluChoice(idx)
@@ -689,6 +688,12 @@ function fctInitActionPhase()
 
     flexFont();
 
+    /* Set first player */
+    i=0;
+    while(strategyList[i][STRATEGY_PLAYER] == 255)
+        i++;
+    gActivePlayer = i-1; /* because real player will be loaded on incoming call of FctNextPlayerAction */
+    gCurrentPlayerTimer = 0;
 
     if (gMuaatronomeActive) {
         if (!gMuaatronomeSession) {
@@ -698,15 +703,12 @@ function fctInitActionPhase()
             .filter(sl => sl[STRATEGY_PLAYER] != 255)
             .map(sl => sl[STRATEGY_PLAYER])
             .map(p => ({'race': getPlayerFaction(p, FACTION_SHORTNAME).toLowerCase(), 'time': gPlayerData[p][PLAYER_CLOCK]}));
-        axios.post(`game/${gMuaatronomeSession}/start_round`, {'races': playerList}).catch(error => alert(error));
+        axios.post(`game/${gMuaatronomeSession}/start_round/`, {'races': playerList})
+            .then(resp => FctNextPlayerAction())
+            .catch(error => alert(error));
+    } else {
+        FctNextPlayerAction()
     }
-
-    /* Set first player */
-    i=0;
-    while(strategyList[i][STRATEGY_PLAYER] == 255)
-        i++;
-    gActivePlayer = i-1; /* because real player will be loaded on incoming call of FctNextPlayerAction */
-    gCurrentPlayerTimer = 0;
 }
 
 function fctSetActionButtons(ply)
@@ -822,14 +824,14 @@ function fctResolveAction()
     if (gMuaatronomeActive) {
         // inform server that the main has gone to next player.
         // the main_update poll will trigger fctLocalResolveAction
-        const passed = strategyList[gActivePlayer][STRATEGY_STATUS] = STRATEGY_PASSED;
+        const passed = strategyList[gActivePlayer][STRATEGY_STATUS] == STRATEGY_PASSED;
         const strat_played = passed ? true :
             strategyList[gActivePlayer][STRATEGY_STATUS] == STRATEGY_PLAYED;
-        return axios.post(`game/${gMuaatronomeSession}/main_next`, {
+        return axios.post(`game/${gMuaatronomeSession}/next/`, {
             'strat': strat_played,
             'passed': passed,
         }).catch(err => alert(err));
-        // main_update poll will now trigger FctNextPlayerAction
+        // main_update long poll will now trigger FctNextPlayerAction
     } else {
         FctNextPlayerAction();
     }
@@ -1003,16 +1005,17 @@ function FctNextPlayerAction()
         fctRstFrames();
     }
 
-    axios.get(`game/${gMuaatronomeSession}/main_update`)
+    axios.get(`game/${gMuaatronomeSession}/update/`)
         .then(response => {
             if (!gActionButtonsProcessed) {
                 // Process performed action from server information.
                 const { passed, strat } = response.data
                 $("#idActionS1").toggleClass("clActionActive", strat);
                 $("#idActionPass").toggleClass("clActionActive", passed);
+                $("#idActionTactical").toggleClass("clActionActive", true);
                 fctProcessActionButtons()
             }
-            // Action has been performed locally.
+            // Action has been performed locally by main.
             FctNextPlayerAction()
         })
     fctClock('on');
