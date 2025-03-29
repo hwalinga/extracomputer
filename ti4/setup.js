@@ -39,7 +39,12 @@ async function fctStartScreen(entry)
         fctShowSetupScreen(255);
         document.getElementById("idStartScreen").style.display = "none";
 
+        if (!gMuaatronomeSession) {
+            gMuaatronomeSession = prompt("What was the session name (empty for local storage load)");
+        }
+        console.log('loading')
         await fctLoadGame();
+        console.log('ready')
 
         document.getElementsByClassName("header")[0].style.display = "flex";
         document.getElementsByClassName("clNavBar")[0].style.display = "flex";

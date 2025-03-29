@@ -12,6 +12,9 @@ var gServerLoadedItems = {};
 var gStillLoading = true;
 var gLoadingPromises = [];
 
+var gSaveBulk = false;
+var gSaveItems = {'keys': [], 'values': []}
+
 function pageInit()
 {
     document.getElementById("idLoading").style.display = "none";
@@ -280,6 +283,20 @@ function fctSaveGameXXX()
 
 function fctSaveGame()
 {
+    if (!gMuaatronomeRecover || !gMuaatronomeSession) return fctSaveItems();
+    gSaveItems = {'keys': [], 'values': []}
+    gSaveBulk = true;
+    fctSaveItems()
+    axios
+        .post(`game/${gMuaatronomeSession}/save/`, gSaveItems)
+        .then(response => {console.log('bulk saved!');})
+        .catch(err => alert(err))
+    gSaveBulk = false;
+
+
+}
+
+function fctSaveItems() {
     var i;
 
     /* Version */
@@ -340,37 +357,66 @@ function fctSaveVP(i, v)
 async function fctLoadGame()
 {
 
-    if (!gMuaatronomeRecover) return fctLoadItems();
+    if (!gMuaatronomeRecover) return fctLoadItems(fctLoadItem("gSetupNbPlayer")*1, fctLoadItem("gActivePhase")*1);
 
     // Run fctLoadItems twice: first to get all promises, then to assign all vars.
+
+    // Need nr of players first.
+    await axios
+        .get(`game/${gMuaatronomeSession}/save/gSetupNbPlayer`)
+        .then(response => {gSetupNbPlayer = response.data['gSetupNbPlayer'];})
+        .catch(err => alert(err))
+
+    await axios
+        .get(`game/${gMuaatronomeSession}/save/gActivePhase`)
+        .then(response => {gActivePhase = response.data['gActivePhase'];})
+        .catch(err => alert(err))
+
     gStillLoading = true;
     gLoadingPromises = [];
     gServerLoadedItems = {};
-    fctLoadItems()
+    // Collect all items to load.
+    fctLoadItems(gSetupNbPlayer, gActivePhase);
+    console.log('waiting for promises')
     await Promise.all(gLoadingPromises);
     gStillLoading = false;
-    fctLoadItems()
+    console.log('done loading')
+    // Now set them all from gServerLoadedItems
+    fctLoadItems(gSetupNbPlayer, gActivePhase);
+    console.log('set all items')
 }
 
-function fctLoadItems() {
+function fctLoadItems(NbPlayer, phase) {
+    if (NbPlayer) {
+        gSetupNbPlayer = NbPlayer;
+    }
+    if (phase) {
+        gActivePhase = phase;
+    }
+
     var i;
 
     /* Players */
-    gSetupNbPlayer = fctLoadItem("gSetupNbPlayer")*1;
     for(i=0; i < gSetupNbPlayer; i++)
     {
         gPlayerData[i][PLAYER_FACTION] = fctLoadItem("gPlayerData" + i + PLAYER_FACTION);
         gPlayerData[i][PLAYER_COLOR] = fctLoadItem("gPlayerData" + i + PLAYER_COLOR);
         gPlayerData[i][PLAYER_CLOCK] = fctLoadItem("gPlayerData" + i + PLAYER_CLOCK)*1;
         gPlayerData[i][PLAYER_NBSPEAKER] = fctLoadItem("gPlayerData" + i + PLAYER_NBSPEAKER)*1;
-        gPlayerData[i][PLAYER_INFLUENCE] = fctLoadItem("gPlayerData" + i + PLAYER_INFLUENCE)*1;
+
+        const key = "gPlayerData" + i + PLAYER_INFLUENCE;
+        console.log(key)
+        const el = fctLoadItem(key)*1;
+        console.log(el);
+
+        gPlayerData[i][PLAYER_INFLUENCE] =
+        console.log(gPlayerData)
     }
 
     /* Game */
     gTurnCounter = fctLoadItem("gTurnCounter")*1;
     gRoundCounter = fctLoadItem("gRoundCounter")*1;
     gGameDuration = fctLoadItem("gGameDuration")*1;
-    gActivePhase = fctLoadItem("gActivePhase")*1;
     if(gActivePhase >= PHASE_END) gActivePhase -= PHASE_END;
     gAgendaPhase = fctLoadItem("gAgendaPhase")*1;
     gAgendaStep = fctLoadItem("gAgendaStep")*1;
@@ -379,27 +425,31 @@ function fctLoadItems() {
     document.getElementById("idOptionVPWin").value = fctLoadItem("idOptionVPWin")*1;
 
     /* Victory points */
-    vpInit();
-    fctInfluInit();
+    if (!gStillLoading) {
+        vpInit();
+        fctInfluInit();
+    }
     var clVPCount = document.getElementsByClassName("clVPCount");
     for( i=0; i< gSetupNbPlayer; i++)
         clVPCount[i].textContent = (fctLoadItem("VP"+i)*1).pad(2);
 
-    /* Set player frames*/
-    var classSetPlayerFrame = document.getElementById("idGameTable").getElementsByClassName("classSetPlayerFrame");
-    var classPlayerRaceName = document.getElementById("idGameTable").getElementsByClassName("classPlayerRaceName");
-    for(i=0; i< gSetupNbPlayer; i++)
-    {
-        classPlayerRaceName[i].textContent = getPlayerFaction(i,FACTION_NAME);
-        w3AddClass(classSetPlayerFrame[i], playerColorList[gPlayerData[i][PLAYER_COLOR]]);
-        classSetPlayerFrame[i].style.backgroundImage = 'url('+factionList[gPlayerData[i][PLAYER_FACTION]][FACTION_ICON]+')';
+    if (!gStillLoading) {
+        /* Set player frames*/
+        var classSetPlayerFrame = document.getElementById("idGameTable").getElementsByClassName("classSetPlayerFrame");
+        var classPlayerRaceName = document.getElementById("idGameTable").getElementsByClassName("classPlayerRaceName");
+        for(i=0; i< gSetupNbPlayer; i++)
+        {
+            classPlayerRaceName[i].textContent = getPlayerFaction(i,FACTION_NAME);
+            w3AddClass(classSetPlayerFrame[i], playerColorList[gPlayerData[i][PLAYER_COLOR]]);
+            classSetPlayerFrame[i].style.backgroundImage = 'url('+factionList[gPlayerData[i][PLAYER_FACTION]][FACTION_ICON]+')';
+        }
+
+        /* Change option panel to game mode */
+        fctSwitchOptionPanel();
+
+        /* Load page first, since elements will be edited next */
+        loadTurnOrderPage();
     }
-
-    /* Change option panel to game mode */
-    fctSwitchOptionPanel();
-
-    /* Load page first, since elements will be edited next */
-    loadTurnOrderPage();
 
     for(i=0; i < strategyList.length; i++)
     {
@@ -434,7 +484,9 @@ function fctLoadItems() {
                 el[i].src = factionList[gPlayerData[strategyList[i][STRATEGY_PLAYER]][PLAYER_FACTION]][FACTION_ICON];
             }
 
-        fctInitActionPhase();
+        if (!gStillLoading) {
+            fctInitActionPhase();
+        }
 
         for(i=0; i < strategyList.length; i++)
         {
@@ -449,26 +501,38 @@ function fctLoadItems() {
 
         gActivePlayer = fctLoadItem("gActivePlayer")*1;
         gActivePlayer--;
-        FctNextPlayerAction();
+        if (!gStillLoading) {
+            FctNextPlayerAction();
+        }
 
         openTab('noButton', 'idTurnOrderTab');
+
+        return;
     }
-    else if (fctGetPhase() == PHASE_STRATEGY)
+    if (gStillLoading) return
+
+    if (fctGetPhase() == PHASE_STRATEGY)
     {
         openTab('noButton', 'idTurnOrderTab');
 
         /* Reload the turn */
         gTurnCounter--;
         fctNewTurn();
+
+        return;
     }
-    else if (fctGetPhase() == PHASE_STATUS)
+
+    if (fctGetPhase() == PHASE_STATUS)
     {
         fctStatusPhase();
+        return;
     }
-    else if (fctGetPhase() == PHASE_AGENDA)
+
+    if (fctGetPhase() == PHASE_AGENDA)
     {
         fctSetPhase(PHASE_AGENDA);
         fctPrepareAgenda(gAgendaStep);
+        return
     }
 }
 
@@ -476,9 +540,14 @@ function fctLoadItems() {
 function fctSaveItem(i,v)
 {
     if (gMuaatronomeRecover && gMuaatronomeSession) {
-        axios
-            .get(`game/${gMuaatronomeSession}/${i}/${v}`)
-            .catch(err => alert(err))
+        if (gSaveBulk) {
+            gSaveItems.keys.push(i);
+            gSaveItems.values.push(v);
+        } else {
+            axios
+                .post(`game/${gMuaatronomeSession}/save/`, {'keys': [i], 'values': [v]})
+                .catch(err => alert(err))
+        }
     } else {
         localStorage.setItem(i, v);
     }
@@ -490,8 +559,8 @@ function fctLoadItem(i)
     if (gMuaatronomeRecover && gMuaatronomeSession) {
         if (gStillLoading) {
             const prom = axios
-                .get(`game/${gMuaatronomeSession}/${i}`)
-                .then(response => {gServerLoadedItems[i] = response[i];})
+                .get(`game/${gMuaatronomeSession}/save/${i}/`)
+                .then(response => {gServerLoadedItems[i] = response.data[i];})
                 .catch(err => alert(err))
             gLoadingPromises.push(prom);
         } else {
