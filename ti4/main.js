@@ -8,6 +8,10 @@ var gLastActivity = 0;
 var gCurrentPlayerTimer = 0;
 var gDecisionTimer = 10;
 
+var gServerLoadedItems = {};
+var gStillLoading = true;
+var gLoadingPromises = [];
+
 function pageInit()
 {
     document.getElementById("idLoading").style.display = "none";
@@ -256,6 +260,7 @@ Number.prototype.pad = function(size) {
 
 function fctCheckSavedData()
 {
+    if (gMuaatronomeSession && gMuaatronomeRecover) return true;
     if (fctLoadItem("NEKROVIRUS") == "010000100101010101000111")
         if( Math.floor(fctLoadItem("cVERSION")/100) >= Math.floor(cVERSION/100))
             return true;
@@ -332,8 +337,22 @@ function fctSaveVP(i, v)
     fctSaveItem("gGameDuration", gGameDuration);
 }
 
-function fctLoadGame()
+async function fctLoadGame()
 {
+
+    if (!gMuaatronomeRecover) return fctLoadItems();
+
+    // Run fctLoadItems twice: first to get all promises, then to assign all vars.
+    gStillLoading = true;
+    gLoadingPromises = [];
+    gServerLoadedItems = {};
+    fctLoadItems()
+    await Promise.all(gLoadingPromises);
+    gStillLoading = false;
+    fctLoadItems()
+}
+
+function fctLoadItems() {
     var i;
 
     /* Players */
@@ -456,12 +475,31 @@ function fctLoadGame()
 
 function fctSaveItem(i,v)
 {
-    localStorage.setItem(i, v);
+    if (gMuaatronomeRecover && gMuaatronomeSession) {
+        axios
+            .get(`game/${gMuaatronomeSession}/${i}/${v}`)
+            .catch(err => alert(err))
+    } else {
+        localStorage.setItem(i, v);
+    }
+
 }
 
 function fctLoadItem(i)
 {
-    return localStorage.getItem(i);
+    if (gMuaatronomeRecover && gMuaatronomeSession) {
+        if (gStillLoading) {
+            const prom = axios
+                .get(`game/${gMuaatronomeSession}/${i}`)
+                .then(response => {gServerLoadedItems[i] = response[i];})
+                .catch(err => alert(err))
+            gLoadingPromises.push(prom);
+        } else {
+            return gServerLoadedItems[i];
+        }
+    } else {
+        return localStorage.getItem(i);
+    }
 }
 
 function fctClose(id)

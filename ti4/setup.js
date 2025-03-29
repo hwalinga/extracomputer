@@ -26,7 +26,7 @@ var gVPBarStyle = "flex";
 var gDecisionTimeLimit = 90;
 
 
-function fctStartScreen(entry)
+async function fctStartScreen(entry)
 {
     if(entry == 'newgame')
     {
@@ -39,7 +39,7 @@ function fctStartScreen(entry)
         fctShowSetupScreen(255);
         document.getElementById("idStartScreen").style.display = "none";
 
-        fctLoadGame();
+        await fctLoadGame();
 
         document.getElementsByClassName("header")[0].style.display = "flex";
         document.getElementsByClassName("clNavBar")[0].style.display = "flex";
