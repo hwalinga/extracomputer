@@ -166,7 +166,7 @@ function fctOneSecond()
   if(gClockRun == 1)
   {
     gGameDuration++;
-    gCurrentPlayerTimer++;
+    gCurrentPlayerTimer--;
     gDecisionTimer--;
 
     if(gDecisionTimer == 5)

@@ -6,17 +6,17 @@ const PLAYER_COLOR = 1;
 const PLAYER_CLOCK = 2;
 const PLAYER_NBSPEAKER = 3;
 const PLAYER_INFLUENCE = 4;
-
+const START_TIME = 10*60;
 
 var gPlayerData = [
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
-  [0, 0, 0, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
+  [0, 0, START_TIME, 0, 0],
 ];
 
 var gSpeakerPlayerIdx = 255;

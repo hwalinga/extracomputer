@@ -722,6 +722,10 @@ function setupNextPlayer(start_round = true)
     }
 }
 
+function fctAddTimeIncrement(ply) {
+    gPlayerData[strategyList[ply][STRATEGY_PLAYER]][PLAYER_CLOCK] += 60;
+}
+
 function fctSetActionButtons(ply)
 {
     var clActionButton = document.getElementsByClassName("clActionButton");
@@ -1001,6 +1005,8 @@ function FctNextPlayerAction()
         document.getElementById("idFactoinClk").textContent = fctTransformTime(gPlayerData[strategyList[gActivePlayer][STRATEGY_PLAYER]][PLAYER_CLOCK]);
 
         fctSetActionButtons(gActivePlayer);
+        
+        fctAddTimeIncrement(gActivePlayer);
 
 
         axios.get(`game/${gMuaatronomeSession}/update/`)
