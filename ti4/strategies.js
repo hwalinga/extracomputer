@@ -597,7 +597,7 @@ function fctRstStrategyPhase()
     fctInitStrategyPhase();
 }
 
-function fctInitActionPhase()
+function fctInitActionPhase(onlyInit = false)
 {
     var i,j;
     fctSetPhase(PHASE_ACTION);
@@ -695,6 +695,11 @@ function fctInitActionPhase()
     gActivePlayer = i-1; /* because real player will be loaded on incoming call of FctNextPlayerAction */
     gCurrentPlayerTimer = 0;
 
+    if (!onlyInit) setupNextPlayer()
+}
+
+function setupNextPlayer(start_round = true) 
+{
     if (gMuaatronomeActive) {
         if (!gMuaatronomeSession) {
             gMuaatronomeSession = prompt("Set session name, do not use spaces.");
@@ -703,9 +708,15 @@ function fctInitActionPhase()
             .filter(sl => sl[STRATEGY_PLAYER] != 255)
             .map(sl => sl[STRATEGY_PLAYER])
             .map(p => ({'race': getPlayerFaction(p, FACTION_SHORTNAME).toLowerCase(), 'time': gPlayerData[p][PLAYER_CLOCK]}));
-        axios.post(`game/${gMuaatronomeSession}/start_round/`, {'races': playerList})
-            .then(resp => FctNextPlayerAction())
-            .catch(error => alert(error));
+
+        if (start_round) {
+            axios.post(`game/${gMuaatronomeSession}/start_round/`, {'races': playerList})
+                .then(resp => FctNextPlayerAction())
+                .catch(error => alert(error));
+        } else {
+            FctNextPlayerAction()
+        }
+
     } else {
         FctNextPlayerAction()
     }
@@ -991,7 +1002,23 @@ function FctNextPlayerAction()
 
         fctSetActionButtons(gActivePlayer);
 
-        fctSaveGame();
+
+        axios.get(`game/${gMuaatronomeSession}/update/`)
+            .then(async response => {
+                if (!gActionButtonsProcessed) {
+                    // Process performed action from server information.
+                    const { passed, strat } = response.data
+                    $("#idActionS1").toggleClass("clActionActive", strat);
+                    $("#idActionPass").toggleClass("clActionActive", passed);
+                    $("#idActionTactical").toggleClass("clActionActive", true);
+                    fctProcessActionButtons()
+                }
+                // Action has been performed locally by main.
+                success = await fctSaveGame();
+                console.log("Successfully saved " + success)
+                FctNextPlayerAction()
+            })
+        gActionButtonsProcessed = false;
     }
     /* End of turn */
     else
@@ -1005,21 +1032,7 @@ function FctNextPlayerAction()
         fctRstFrames();
     }
 
-    axios.get(`game/${gMuaatronomeSession}/update/`)
-        .then(response => {
-            if (!gActionButtonsProcessed) {
-                // Process performed action from server information.
-                const { passed, strat } = response.data
-                $("#idActionS1").toggleClass("clActionActive", strat);
-                $("#idActionPass").toggleClass("clActionActive", passed);
-                $("#idActionTactical").toggleClass("clActionActive", true);
-                fctProcessActionButtons()
-            }
-            // Action has been performed locally by main.
-            FctNextPlayerAction()
-        })
     fctClock('on');
-    gActionButtonsProcessed = false;
 
 }
 

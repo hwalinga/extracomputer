@@ -281,19 +281,20 @@ function fctSaveGameXXX()
     DEBUG("NOSAVE");
 }
 
-function fctSaveGame()
+async function fctSaveGame()
 {
     if (!gMuaatronomeRecover || !gMuaatronomeSession) return fctSaveItems();
     gSaveItems = {'keys': [], 'values': []}
     gSaveBulk = true;
     fctSaveItems()
-    axios
-        .post(`game/${gMuaatronomeSession}/save/`, gSaveItems)
-        .then(response => {console.log('bulk saved!');})
-        .catch(err => alert(err))
+    try {
+        var resp = await axios.post(`game/${gMuaatronomeSession}/save/`, gSaveItems)
+        console.log('bulk saved!')
+    } catch (e) {
+        console.log('saving error (possible locked db)' + e)
+    }
     gSaveBulk = false;
-
-
+    return resp.data.saved
 }
 
 function fctSaveItems() {
@@ -485,7 +486,7 @@ function fctLoadItems(NbPlayer, phase) {
             }
 
         if (!gStillLoading) {
-            fctInitActionPhase();
+            fctInitActionPhase(true); // only_init = true
         }
 
         for(i=0; i < strategyList.length; i++)
@@ -502,7 +503,7 @@ function fctLoadItems(NbPlayer, phase) {
         gActivePlayer = fctLoadItem("gActivePlayer")*1;
         gActivePlayer--;
         if (!gStillLoading) {
-            FctNextPlayerAction();
+            setupNextPlayer(false); // start_round = false
         }
 
         openTab('noButton', 'idTurnOrderTab');
