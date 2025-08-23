@@ -248,10 +248,12 @@ function fctOneSecond()
 
 function fctTransformTime(t)
 {
+    var sign = t < 0 ? "-" : "";
+    t = Math.abs(t)
     var sec = Math.floor((t%60));
     var min = Math.floor((t%3600)/60);
     var hour = Math.floor(t/3600);
-    var clock = hour.pad(2)+":"+min.pad(2)+":"+sec.pad(2);
+    var clock = sign+hour.pad(2)+":"+min.pad(2)+":"+sec.pad(2);
     return clock;
 }
 
